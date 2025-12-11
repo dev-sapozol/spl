@@ -1,0 +1,21 @@
+Error: {badrecord,not_found}
+[{providers,do,2,
+            [{file,"/rebar3/vendor/providers/src/providers.erl"},{line,90}]},
+ {rebar_core,do,2,[{file,"/rebar3/apps/rebar/src/rebar_core.erl"},{line,155}]},
+ {rebar_hooks,run_provider_hooks_,6,
+              [{file,"/rebar3/apps/rebar/src/rebar_hooks.erl"},{line,70}]},
+ {rebar_hooks,run_all_hooks,6,
+              [{file,"/rebar3/apps/rebar/src/rebar_hooks.erl"},{line,18}]},
+ {rebar_prv_compile,'-compile/4-lc$^0/1-0-',3,
+                    [{file,"/rebar3/apps/rebar/src/rebar_prv_compile.erl"},
+                     {line,152}]},
+ {rebar_prv_compile,compile,4,
+                    [{file,"/rebar3/apps/rebar/src/rebar_prv_compile.erl"},
+                     {line,152}]},
+ {rebar_prv_compile,compile,3,
+                    [{file,"/rebar3/apps/rebar/src/rebar_prv_compile.erl"},
+                     {line,143}]},
+ {rebar_prv_bare_compile,do,1,
+                         [{file,"/rebar3/apps/rebar/src/rebar_prv_bare_compile.erl"},
+                          {line,71}]}]
+
