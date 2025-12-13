@@ -25,6 +25,8 @@ defmodule Spl.MailBox.Emails do
     field :deleted_at, :string
     field :folder_type, Ecto.Enum, values: [:SYSTEM, :USER]
     field :folder_id, :integer
+    field :sender_email, :string
+    field :sender_name, :string
 
     timestamps()
   end
@@ -51,7 +53,9 @@ defmodule Spl.MailBox.Emails do
       :thread_id,
       :deleted_at,
       :folder_type,
-      :folder_id
+      :folder_id,
+      :sender_email,
+      :sender_name
     ])
     |> validate_required([
       :user_id,

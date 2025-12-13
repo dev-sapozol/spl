@@ -89,31 +89,6 @@ defmodule Spl.MailBox do
     Repo.delete(email)
   end
 
-def get_email_with_sender(id) do
-  Emails
-  |> where([e], e.id == ^id)
-  |> join(:inner, [e], u in User, on: u.id == e.user_id)
-  |> select([e, u], %{
-      id: e.id,
-      subject: e.subject,
-      preview: e.preview,
-      text_body: e.text_body,
-      html_body: e.html_body,
-      inserted_at: e.inserted_at,
-      to: e.to,
-      cc: e.cc,
-      has_attachment: e.has_attachment,
-      importance: e.importance,
-      is_read: e.is_read,
-      folder_type: e.folder_type,
-      folder_id: e.folder_id,
-      sender_name: u.name,
-      sender_email: u.email
-  })
-  |> Repo.one()
-end
-
-
   def preload_mailbox(user_id, limit) do
     system_folders =
       list_system_folders()
