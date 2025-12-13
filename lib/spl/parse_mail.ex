@@ -13,10 +13,11 @@ defmodule Spl.ParseMail do
       headers = Headers.parse_headers(header_str)
 
       Logger.debug("Email parsed: #{map_size(headers)} headers found")
+      Logger.debug("Email headers: #{inspect(headers)}")
 
       email_data = %{
         # Cabeceras de identificacion
-        from: Headers.extract_address(headers, "from"),
+        from: Headers.get_header(headers, "from"),
         to: Headers.extract_address(headers, "to"),
         cc: Headers.extract_address(headers, "cc"),
         bcc: Headers.extract_address(headers, "bcc"),
