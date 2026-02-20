@@ -2,36 +2,78 @@ defmodule SplWeb.Schema.Emails do
   use Absinthe.Schema.Notation
   alias SplWeb.Schema.Middleware
 
+
+  # folder_id
+  # 1 = inbox
+  # 2 = sent
+  # 3 = drafts
+  # 4 = trash
+  # 5 = spam
+  # 6 = archive
+  # 7 = templates
+  # 8 = system
+
   enum :folder_type_enum do
     value(:SYSTEM)
     value(:USER)
+  end
+
+  # Nuevo objeto para estructurar direcciones
+  object :email_address do
+    field :name, :string
+    field :email, :string
   end
 
   # === TYPE ===
   object :emails do
     field :id, :id
     field :user_id, :id
-    field :to, :string
+
+    field :to, :string do
+      resolve(fn email, _, _ ->
+        {:ok, addresses_to_string(email.to)}
+      end)
+    end
+
+    field :to_addresses, list_of(:email_address)
+
+    field :cc, :string do
+      resolve(fn email, _, _ ->
+        {:ok, addresses_to_string(email.cc)}
+      end)
+    end
+
+    field :cc_addresses, list_of(:email_address)
+
     field :sender_name, :string
     field :sender_email, :string
 
     field :subject, :string
     field :preview, :string
-    field :text_body, :string
-    field :html_body, :string
+
+    field :body_url, :string do
+      resolve(&Spl.EmailsResolver.resolve_body_url/3)
+    end
+
+    field :raw_url, :string do
+      resolve(&Spl.EmailsResolver.resolve_raw_url/3)
+    end
 
     field :original_message_id, :string
-    field :cc, :string
-    field :inbox_type, :integer
     field :is_read, :boolean
     field :has_attachment, :boolean
     field :importance, :integer
     field :in_reply_to, :string
-    field :references, :string
-    field :s3_url, :string
+
+    # References ahora devuelve lista de strings
+    field :references, list_of(:string)
+
     field :thread_id, :string
     field :folder_type, :folder_type_enum
     field :folder_id, :integer
+
+    field :body_size_bytes, :integer
+
     field :deleted_at, :string
     field :inserted_at, :string
     field :updated_at, :string
@@ -42,7 +84,6 @@ defmodule SplWeb.Schema.Emails do
     field :to, :string
     field :sender_email, :string
     field :subject, :string
-
     field :is_read, :boolean
     field :importance, :integer
     field :has_attachment, :boolean
@@ -57,6 +98,8 @@ defmodule SplWeb.Schema.Emails do
     field :preview, :string
     field :sender_name, :string
     field :sender_email, :string
+
+    # listas, seguimos devolviendo string para no romper el UI
     field :to, :string
 
     field :is_read, :boolean
@@ -72,8 +115,8 @@ defmodule SplWeb.Schema.Emails do
     field :to, :string
     field :cc, :string
     field :bcc, :string
+
     field :subject, :string
-    field :text_body, :string
     field :html_body, :string
 
     field :has_attachment, :boolean
@@ -110,8 +153,6 @@ defmodule SplWeb.Schema.Emails do
     field :emails_by_folder, list_of(:folder_emails)
   end
 
-  # === QUERIES ===
-
   object :email_queries do
     field :get_email, type: :emails do
       arg(:id, non_null(:id))
@@ -126,14 +167,11 @@ defmodule SplWeb.Schema.Emails do
     end
 
     field :preload_mailbox, type: :preload_mailbox do
-      arg(:user_id, non_null(:integer_id))
       arg(:limit, :integer, default_value: 50)
       middleware(Middleware.Authenticate, :all)
       resolve(&Spl.EmailsResolver.preload_mailbox/2)
     end
   end
-
-  # === MUTATIONS ===
 
   object :email_mutations do
     field :send_email, type: :emails do
@@ -153,5 +191,28 @@ defmodule SplWeb.Schema.Emails do
       middleware(Middleware.Authenticate, :all)
       resolve(&Spl.EmailsResolver.delete/2)
     end
+  end
+
+  defp addresses_to_string(nil), do: nil
+  defp addresses_to_string([]), do: nil
+
+  defp addresses_to_string(addresses) when is_list(addresses) do
+    addresses
+    |> Enum.map(fn
+      # JSON (string keys)
+      %{"email" => email, "name" => name} when is_binary(name) ->
+        "#{name} <#{email}>"
+
+      %{"email" => email} ->
+        email
+
+      # Elixir (atom keys)
+      %{email: email, name: name} when is_binary(name) ->
+        "#{name} <#{email}>"
+
+      %{email: email} ->
+        email
+    end)
+    |> Enum.join(", ")
   end
 end

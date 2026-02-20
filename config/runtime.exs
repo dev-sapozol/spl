@@ -13,6 +13,13 @@ aws_access_key_id = Dotenvy.env!("AWS_ACCESS_KEY_ID", :string)
 aws_secret_access_key = Dotenvy.env!("AWS_SECRET_KEY", :string)
 aws_account_id = Dotenvy.env!("AWS_ACCOUNT_ID", :string)
 
+r2_access_key_id = Dotenvy.env!("R2_ACCESS_KEY_ID", :string)
+r2_secret_access_key = Dotenvy.env!("R2_SECRET_KEY", :string)
+r2_account_id = Dotenvy.env!("R2_ACCOUNT_ID", :string)
+r2_bucket_name = Dotenvy.env!("R2_BUCKET_NAME", :string)
+
+ut_redis_url = Dotenvy.env!("REDIS_URL", :string)
+
 config :spl, Spl.Auth.Guardian,
   issuer: "spl",
   secret_key: secret_key,
@@ -21,7 +28,19 @@ config :spl, Spl.Auth.Guardian,
     refresh: {30, :days}
   }
 
-config :spl, :aws, aws_account_id: aws_account_id
+config :spl, :r2,
+  access_key_id: r2_access_key_id,
+  secret_access_key: r2_secret_access_key,
+  account_id: r2_account_id,
+  bucket_name: r2_bucket_name
+
+config :spl, :redis,
+  url: ut_redis_url
+
+config :spl, :aws,
+  aws_account_id: aws_account_id,
+  aws_access_key: aws_access_key_id,
+  aws_secret_key: aws_secret_access_key
 
 config :ex_aws,
   access_key_id: aws_access_key_id,

@@ -6,14 +6,13 @@ defmodule Spl.InboxEmail do
   alias Spl.Account
   alias Spl.MailBox.Emails
   alias ExAws.{SES, SQS, S3}
-  alias Spl.{AwsBuilder, Repo, MailBox, ParseMail, Account, EmailComposer}
+  alias Spl.{AwsBuilder, Repo, MailBox, ParseMail, Account, EmailComposer, EmailStorage}
   alias Spl.ParseMail.{Email, Headers}
   alias Spl.InboxEmail.UtilsFunctions
 
   @inbox_type %{received: 0, sent: 1, draft: 2}
   @statuses %{unread: 0, sent: 1, failed: 99}
   @region "us-east-1"
-  @s3_spl "spl-ses-bucket-dev"
 
   def start_link(_args) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -223,13 +222,13 @@ defmodule Spl.InboxEmail do
 
   # EMAIL REGISTRATION
 
-  def register_email(raw_eml_body, s3_url, _message_id_from_header) do
+  def register_email(raw_eml_body, _s3_url, _message_id_from_header) do
     case ParseMail.parse_email_content(raw_eml_body) do
       {:ok, %Email{} = parsed_email} ->
-        Logger.info("Succesfully parsed received email")
+        Logger.info("Successfully parsed received email")
         thread_id = find_or_create_thread_id(parsed_email)
 
-        create_received_email_record(parsed_email, thread_id, s3_url)
+        create_received_email_record(raw_eml_body, parsed_email, thread_id)
 
       {:error, _type, reason} ->
         Logger.error("Error parsing email: #{inspect(reason)}")
@@ -237,7 +236,7 @@ defmodule Spl.InboxEmail do
     end
   end
 
-  defp create_received_email_record(parsed_email, thread_id, s3_url) do
+  defp create_received_email_record(raw_eml_body, parsed_email, thread_id) do
     target_email =
       case parsed_email.to do
         list when is_list(list) -> List.first(list)
@@ -254,40 +253,76 @@ defmodule Spl.InboxEmail do
     Logger.debug("Sender name: #{inspect(sender_name)}")
     Logger.debug("Sender email: #{inspect(sender_email)}")
 
-    received_email_attrs = %{
-      user_id: user_id,
-      sender_name: sender_name,
-      sender_email: sender_email,
-      to: UtilsFunctions.list_to_string(parsed_email.to),
-      cc: UtilsFunctions.list_to_string(parsed_email.cc),
-      bcc: UtilsFunctions.list_to_string(parsed_email.bcc),
-      subject: parsed_email.subject,
-      preview: EmailComposer.generate_preview(parsed_email.text_body || parsed_email.html_body),
-      s3_url: s3_url,
-      inbox_type: @inbox_type.received,
-      status: @statuses.unread,
-      importance: extract_importance(parsed_email),
-      message_id: parsed_email.message_id,
-      references: UtilsFunctions.list_to_string(parsed_email.references),
-      in_reply_to_header: UtilsFunctions.list_to_string(parsed_email.in_reply_to),
-      thread_id: thread_id,
-      text_body: parsed_email.text_body,
-      html_body: parsed_email.html_body,
-      has_attachment: not Enum.empty?(parsed_email.attachments),
-      folder_id: 1,
-      folder_type: :SYSTEM
-    }
+    with {:ok, raw_key} <- EmailStorage.upload_raw_email(raw_eml_body, user_id),
+         {:ok, body_key, body_size} <-
+           EmailStorage.upload_html_body(
+             parsed_email.html_body,
+             user_id
+           ) do
+      attachments_size = EmailStorage.calculate_attachments_size(parsed_email.attachments)
 
-    case MailBox.create_email(received_email_attrs) do
-      {:ok, new_email} ->
-        Logger.info("Succesfully registered received email", metadata: [email_id: new_email.id])
-        {:ok, new_email}
+      received_email_attrs = %{
+        user_id: user_id,
+        sender_name: sender_name,
+        sender_email: sender_email,
+        to_addresses: parse_addresses_to_array(parsed_email.to),
+        cc_addresses: parse_addresses_to_array(parsed_email.cc),
+        subject: parsed_email.subject,
+        preview: EmailComposer.generate_preview(parsed_email.html_body),
+        body_raw_storage_key: raw_key,
+        body_storage_key: body_key,
+        body_size_bytes: body_size,
+        attachments_size_bytes: attachments_size,
+        has_attachment: not Enum.empty?(parsed_email.attachments),
+        importance: extract_importance(parsed_email),
+        original_message_id: parsed_email.message_id,
+        in_reply_to: UtilsFunctions.list_to_string(parsed_email.in_reply_to),
+        references: parsed_email.references || [],
+        thread_id: thread_id,
+        is_read: false,
+        folder_id: 1,
+        folder_type: :SYSTEM
+      }
 
+      case MailBox.create_email(received_email_attrs) do
+        {:ok, new_email} ->
+          Logger.info("Successfully registered received email",
+            metadata: [email_id: new_email.id]
+          )
+
+          {:ok, new_email}
+
+        {:error, reason} ->
+          Logger.error("Error registering received email: #{inspect(reason)}")
+          EmailStorage.delete_from_r2(raw_key)
+          EmailStorage.delete_from_r2(body_key)
+          {:error, :registration_failed}
+      end
+    else
       {:error, reason} ->
-        Logger.error("Error registering received email: #{inspect(reason)}")
-        {:error, :registration_failed}
+        Logger.error("Error uploading to R2: #{inspect(reason)}")
+        {:error, :storage_upload_failed}
     end
   end
+
+  # Helper to parse email addresses to array of maps
+  defp parse_addresses_to_array(addresses) when is_list(addresses) do
+    Enum.map(addresses, fn addr ->
+      case UtilsFunctions.parse_address(addr) do
+        {name, email} -> %{name: name, email: email}
+        _ -> %{name: "", email: addr}
+      end
+    end)
+  end
+
+  defp parse_addresses_to_array(address) when is_binary(address) do
+    case UtilsFunctions.parse_address(address) do
+      {name, email} -> [%{name: name, email: email}]
+      _ -> [%{name: "", email: address}]
+    end
+  end
+
+  defp parse_addresses_to_array(_), do: []
 
   defp extract_importance(parsed_email) do
     case parsed_email.importance do
@@ -305,7 +340,7 @@ defmodule Spl.InboxEmail do
           {:ok, Spl.MailBox.Emails.t()} | {:error, term()}
 
   def send_email(params) do
-    Logger.debug("Processing email send and params", metadata: [params: params])
+    Logger.debug("Processing email send", metadata: [to: params[:to]])
 
     sender_email = params[:sender_email]
     sender_name = params[:sender_name]
@@ -318,13 +353,21 @@ defmodule Spl.InboxEmail do
       end
 
     thread_id = Ecto.UUID.generate()
-    Logger.info("Sending email", metadata: [thread_id: thread_id])
+    user_id = params[:user_id]
+    Logger.info("Sending email", metadata: [thread_id: thread_id, user_id: user_id])
 
     with {:ok, raw_email} <- EmailComposer.compose_email(params),
+         {:ok, raw_key} <- EmailStorage.upload_raw_email(raw_email, user_id),
+         {:ok, body_key, body_size} <-
+           EmailStorage.upload_html_body(
+             params[:html_body],
+             user_id
+           ),
          {:ok, _ses_response} <-
-           send_raw_email(raw_email, params.to, params[:cc], params[:bcc], from_string),
-         {:ok, email_imbox} <- create_email_imbox_record(params, thread_id) do
-      {:ok, email_imbox}
+           send_raw_email(raw_email, params[:to], params[:cc], params[:bcc], from_string),
+         {:ok, email_record} <-
+           create_email_record_sent(params, thread_id, raw_key, body_key, body_size) do
+      {:ok, email_record}
     else
       {:error, reason} ->
         Logger.error("Error sending email: #{inspect(reason)}")
@@ -332,32 +375,154 @@ defmodule Spl.InboxEmail do
     end
   end
 
-  defp upload_reply_to_s3(raw_content) do
-    s3_key = generate_s3_key()
-    UtilsFunctions.upload_file_to_s3(@s3_spl, s3_key, raw_content)
+  defp create_email_record_sent(params, thread_id, raw_key, body_key, body_size) do
+    user_id = params[:user_id]
+    attachments_size = EmailStorage.calculate_attachments_size(params[:attachments] || [])
+
+    email_attrs = %{
+      user_id: user_id,
+      sender_email: params[:sender_email],
+      sender_name: params[:sender_name],
+      to_addresses: parse_addresses_to_array(params[:to]),
+      cc_addresses: parse_addresses_to_array(params[:cc]),
+      subject: params[:subject],
+      preview: EmailComposer.generate_preview(params[:html_body]),
+      body_raw_storage_key: raw_key,
+      body_storage_key: body_key,
+      body_size_bytes: body_size,
+      attachments_size_bytes: attachments_size,
+      has_attachment: (params[:attachments] || []) |> Enum.empty?() |> Kernel.not(),
+      importance: params[:importance] || 0,
+      original_message_id: Ecto.UUID.generate(),
+      thread_id: thread_id,
+      is_read: false,
+      folder_id: 2,
+      folder_type: :SYSTEM
+    }
+
+    MailBox.create_email(email_attrs)
+  end
+
+  # EMAIL REPLY
+
+  def send_reply(input, original_email, current_user) do
+    Logger.debug("Processing reply for email ID: #{original_email.id}")
+    {to_list, cc_list} = calculate_reply_recipients(original_email, current_user, input.reply_all)
+
+    user_id = current_user.id
+
+    params = %{
+      from: "#{current_user.name} <#{current_user.email}>",
+      to: to_list,
+      cc: cc_list,
+      bcc: [],
+      subject: input.subject,
+      html_body: input.html_body,
+      importance: original_email.importance || 0
+    }
+
+    thread_id = original_email.thread_id
+
+    with {:ok, composition} <- EmailComposer.compose_reply(params, original_email),
+         raw_mime_string = composition.raw_content,
+         generated_headers = composition.headers,
+         {:ok, raw_key} <- EmailStorage.upload_raw_email(raw_mime_string, user_id),
+         {:ok, body_key, body_size} <-
+           EmailStorage.upload_html_body(
+             input.html_body,
+             user_id
+           ),
+         {:ok, _ses_response} <-
+           send_raw_email(raw_mime_string, params[:to], params[:cc], params[:bcc], params[:from]),
+         {:ok, sent_email} <-
+           create_reply_db_record(
+             input,
+             params,
+             generated_headers,
+             original_email,
+             current_user,
+             thread_id,
+             raw_key,
+             body_key,
+             body_size
+           ) do
+      {:ok, sent_email}
+    else
+      error ->
+        Logger.error("Failed to reply: #{inspect(error)}")
+        error
+    end
+  end
+
+  def create_reply_db_record(
+        input,
+        params,
+        headers,
+        _original_email,
+        current_user,
+        thread_id,
+        raw_key,
+        body_key,
+        body_size
+      ) do
+    message_id = headers["Message-Id"]
+    in_reply_to = headers["In-Reply-To"]
+    references = headers["References"]
+
+    reply_attrs = %{
+      user_id: current_user.id,
+      sender_email: current_user.email,
+      sender_name: current_user.name,
+      to_addresses: parse_addresses_to_array(params[:to]),
+      cc_addresses: parse_addresses_to_array(params[:cc]),
+      subject: params[:subject],
+      preview: EmailComposer.generate_preview(params[:html_body]),
+      body_raw_storage_key: raw_key,
+      body_storage_key: body_key,
+      body_size_bytes: body_size,
+      attachments_size_bytes: EmailStorage.calculate_attachments_size(input[:attachments] || []),
+      has_attachment: not Enum.empty?(input[:attachments] || []),
+      thread_id: thread_id,
+      original_message_id: message_id,
+      in_reply_to: in_reply_to,
+      references: parse_references(references),
+      is_read: false,
+      folder_type: :SYSTEM,
+      folder_id: 2,
+      importance: params[:importance] || 0
+    }
+
+    Logger.debug("Saving reply to DB", metadata: [email_id: current_user.id])
+    MailBox.create_email(reply_attrs)
+  end
+
+  defp parse_references(ref_string) when is_binary(ref_string) do
+    ref_string
+    |> String.split(~r/\s+/)
+    |> Enum.reject(&UtilsFunctions.is_nil_or_blank/1)
+  end
+
+  def calculate_reply_recipients(original, me, reply_all) do
+    primary_to = [original.sender_email]
+
+    if reply_all do
+      original_tos = normalize_list(original.to)
+      original_ccs = normalize_list(original.cc)
+
+      all_involved = original_tos ++ original_ccs
+
+      others =
+        all_involved
+        |> Enum.reject(fn email -> email == me.email or email == original.sender_email end)
+        |> Enum.uniq()
+
+      {primary_to, others}
+    else
+      {primary_to, []}
+    end
   end
 
   # THREAD MANAGEMENT
-
-  def find_or_create_thread_id(email) do
-    ref_ids = extract_ids_from_header(email.references)
-    in_reply_to_ids = extract_ids_from_header(email.in_reply_to)
-    message_id = email.message_id
-
-    search_ids = (ref_ids ++ in_reply_to_ids) |> Enum.uniq() |> Enum.reject(&(&1 == message_id))
-    existing_thread_id = find_existing_thread_id(search_ids)
-
-    case existing_thread_id do
-      nil ->
-        new_thread_id = Ecto.UUID.generate()
-        Logger.debug("Created new thread", metadata: [thread_id: new_thread_id])
-        new_thread_id
-
-      thread_id ->
-        Logger.debug("Found existing thread", metadata: [thread_id: thread_id])
-        thread_id
-    end
-  end
 
   defp extract_ids_from_header(header_string) when is_binary(header_string) do
     header_string
@@ -381,100 +546,24 @@ defmodule Spl.InboxEmail do
     Repo.one(query)
   end
 
-  # EMAIL REPLY
+  def find_or_create_thread_id(email) do
+    ref_ids = extract_ids_from_header(email.references)
+    in_reply_to_ids = extract_ids_from_header(email.in_reply_to)
+    message_id = email.message_id
 
-  def send_reply(input, original_email, current_user) do
-    Logger.debug("Processing reply for email ID: #{original_email.id}")
-    {to_list, cc_list} = calculate_reply_recipients(original_email, current_user, input.reply_all)
+    search_ids = (ref_ids ++ in_reply_to_ids) |> Enum.uniq() |> Enum.reject(&(&1 == message_id))
+    existing_thread_id = find_existing_thread_id(search_ids)
 
-    params = %{
-      from: "#{current_user.name} <#{current_user.email}>",
-      to: to_list,
-      cc: cc_list,
-      bcc: [],
-      subject: input.subject,
-      text_body: input.text_body,
-      html_body: input.html_body,
-      importance: original_email.importance
-    }
+    case existing_thread_id do
+      nil ->
+        new_thread_id = Ecto.UUID.generate()
+        Logger.debug("Created new thread", metadata: [thread_id: new_thread_id])
+        new_thread_id
 
-    thread_id = original_email.thread_id
-
-    with {:ok, composition} <- EmailComposer.compose_reply(params, original_email),
-         raw_mime_string = composition.raw_content,
-         generated_headers = composition.headers,
-         {:ok, _ses_response} <-
-           send_raw_email(raw_mime_string, params.from, params.to, params.cc, params.bcc),
-         {:ok, sent_email} <-
-           create_reply_db_record(
-             params,
-             generated_headers,
-             original_email,
-             current_user,
-             thread_id
-           ) do
-      {:ok, sent_email}
-    else
-      error ->
-        Logger.error("Failed to reply: #{inspect(error)}")
-        error
+      thread_id ->
+        Logger.debug("Found existing thread", metadata: [thread_id: thread_id])
+        thread_id
     end
-  end
-
-  def calculate_reply_recipients(original, me, reply_all) do
-    primary_to = [original.sender_email]
-
-    if reply_all do
-      original_tos = normalize_list(original.to)
-      original_ccs = normalize_list(original.cc)
-
-      all_involved = original_tos ++ original_ccs
-
-      others =
-        all_involved
-        |> Enum.reject(fn email -> email == me.email or email == original.sender_email end)
-        |> Enum.uniq()
-
-      {primary_to, others}
-    else
-      {primary_to, []}
-    end
-  end
-
-  def create_reply_db_record(params, headers, _original_email, current_user, thread_id) do
-    message_id = headers["Message-Id"]
-    in_reply_to = headers["In-Reply-To"]
-    references = headers["References"]
-
-    reply_attrs = %{
-      "user_id" => current_user.id,
-      "sender_email" => current_user.email,
-      "sender_name" => current_user.name,
-
-      "to" => UtilsFunctions.list_to_string(params.to),
-      "cc" => UtilsFunctions.list_to_string(params.cc),
-      "bcc" => UtilsFunctions.list_to_string(params.bcc),
-
-      "subject" => params.subject,
-      "text_body" => params.text_body,
-      "html_body" => params.html_body,
-      "preview" => EmailComposer.generate_preview(params.text_body || params.html_body),
-
-      "thread_id" => thread_id,
-      "message_id" => message_id,
-      "in_reply_to" => in_reply_to,
-      "references" => references,
-
-      "folder_type" => :SYSTEM,
-      "folder_id" => 2, # Sent
-      "inbox_type" => @inbox_type.sent,
-      "status" => @statuses.unread,
-      "importance" => params.importance,
-      "s3_url" => nil
-    }
-
-    Logger.debug("Saving reply to DB: #{inspect(reply_attrs)}")
-    MailBox.create_email(reply_attrs)
   end
 
   # HELPER FUNCTIONS
@@ -538,9 +627,8 @@ defmodule Spl.InboxEmail do
     Logger.debug("Thread id", metadata: [thread_id: thread_id])
 
     html = Map.get(params, :html_body, "")
-    text = Map.get(params, :text_body, "")
 
-    preview = EmailComposer.generate_preview(text || html)
+    preview = EmailComposer.generate_preview(html)
 
     email_imbox_params = %{
       user_id: params.user_id,
@@ -556,17 +644,12 @@ defmodule Spl.InboxEmail do
       status: @statuses.unread,
       importance: params[:importance] || "normal",
       thread_id: thread_id,
-      text_body: text,
       html_body: html,
       folder_id: 2,
       folder_type: "SYSTEM"
     }
 
     MailBox.create_email(email_imbox_params)
-  end
-
-  defp generate_s3_key do
-    :crypto.strong_rand_bytes(20) |> Base.encode16(case: :lower)
   end
 
   defmodule UtilsFunctions do

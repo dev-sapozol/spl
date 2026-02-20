@@ -10,6 +10,7 @@ defmodule Spl.Auth.Guardian do
 
   @impl true
   def resource_from_claims(%{"sub" => id}) do
+    IO.inspect(id, label: ">>> SUB")
     case Account.get_user(id) do
       nil -> {:error, :not_found}
       user -> {:ok, user}

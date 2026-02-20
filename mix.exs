@@ -73,7 +73,10 @@ defmodule Spl.MixProject do
       {:ex_aws_ses, "~> 2.4"},
       {:mail, "~> 0.4"},
       {:bcrypt_elixir, "~> 3.2"},
-      {:cors_plug, "~> 3.0"}
+      {:cors_plug, "~> 3.0"},
+      {:httpoison, "~> 2.1"},
+      {:aws_signature, "0.4.2"},
+      {:redix, "~> 1.5"}
     ]
   end
 

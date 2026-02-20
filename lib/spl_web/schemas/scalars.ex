@@ -17,4 +17,21 @@ defmodule SplWeb.Schema.Scalars do
   end
 
   defp parse_integer_id(_), do: :error
+
+  # scalar :upload do
+  #   description("File upload")
+
+  #   # parse simplemente devuelve lo que recibe. Absinthe confiará en nosotros.
+  #   parse(fn value ->
+  #     case value do
+  #       %{"path" => path, "filename" => filename, "content_type" => ctype} ->
+  #         {:ok, %Plug.Upload{path: path, filename: filename, content_type: ctype}}
+
+  #       _ ->
+  #         :error
+  #     end
+  #   end)
+
+  #   serialize(& &1)
+  # end
 end

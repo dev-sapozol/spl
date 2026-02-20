@@ -4,7 +4,8 @@ defmodule SplWeb.Schema do
 
   alias Spl.{
     Account,
-    MailBox
+    MailBox,
+    Objects
   }
 
   import_types(Absinthe.Type.Custom)
@@ -13,12 +14,16 @@ defmodule SplWeb.Schema do
   import_types(__MODULE__.Emails)
   import_types(__MODULE__.SystemFolders)
   import_types(__MODULE__.UserFolders)
+  import_types(__MODULE__.EmailVerification)
+  import_types(__MODULE__.Files)
 
   query do
     import_fields(:user_queries)
     import_fields(:email_queries)
     import_fields(:system_folders_queries)
     import_fields(:user_folders_queries)
+    import_fields(:email_verification_queries)
+    import_fields(:files_queries)
   end
 
   mutation do
@@ -26,12 +31,15 @@ defmodule SplWeb.Schema do
     import_fields(:email_mutations)
     import_fields(:system_folders_mutations)
     import_fields(:user_folders_mutations)
+    import_fields(:email_verification_mutations)
+    import_fields(:files_mutations)
   end
 
   def dataloader() do
     Dataloader.new()
     |> Dataloader.add_source(Account, Account.data())
     |> Dataloader.add_source(MailBox, MailBox.data())
+    |> Dataloader.add_source(Objects, Objects.data())
   end
 
   def context(ctx) do
