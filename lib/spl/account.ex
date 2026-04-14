@@ -22,6 +22,9 @@ defmodule Spl.Account do
 
       user ->
         if Bcrypt.verify_pass(password, user.password_hash) do
+          IO.inspect(email)
+          IO.inspect(user)
+          IO.inspect(Bcrypt.verify_pass(password, user.password_hash))
           {:ok, user}
         else
           {:error, :invalid_credentials}
@@ -53,8 +56,6 @@ defmodule Spl.Account do
   def change_user_password(user, old_pw, new_pw) do
     if Bcrypt.verify_pass(old_pw, user.password_hash) do
       user
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_change(:password, new_pw)
       |> User.registration_changeset(%{password: new_pw})
       |> Repo.update()
     else
