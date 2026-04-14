@@ -24,10 +24,10 @@ defmodule SplWeb.Router do
   # RUTAS HTML
   # ---------------------------------------------------------
 
-  scope "/", SplWeb do
-    pipe_through :browser
+  scope "/health", SplWeb do
+    pipe_through :api_auth
 
-    get "/", PageController, :home
+    get "/", HealthController, :index
   end
 
   # ---------------------------------------------------------
