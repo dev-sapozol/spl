@@ -2,7 +2,7 @@ defmodule Spl.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
-  alias Spl.InboxEmail
+  alias Spl.{InboxEmail, Redis}
 
   use Application
 
@@ -12,6 +12,7 @@ defmodule Spl.Application do
       SplWeb.Telemetry,
       Spl.Repo,
       InboxEmail,
+      Redis,
       {DNSCluster, query: Application.get_env(:spl, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Spl.PubSub},
       SplWeb.Endpoint

@@ -43,12 +43,14 @@ defmodule SplWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
+    json_decoder: Phoenix.json_library(),
+    length: 100_000_000
+
+  plug SplWeb.Plugs.GraphqlMultipart
 
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  plug SplWeb.Context
 
   plug CORSPlug,
     origin: ["http://localhost:5173"],

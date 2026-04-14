@@ -18,6 +18,7 @@ defmodule Spl.Account.User do
     field :birthdate, :date
     field :age, :integer
     field :gender, :string
+    field :avatar_url, :string
 
     timestamps()
   end
@@ -35,7 +36,8 @@ defmodule Spl.Account.User do
     :lenguage,
     :birthdate,
     :age,
-    :gender
+    :gender,
+    :avatar_url
   ]
 
   def changeset(user, attrs) do

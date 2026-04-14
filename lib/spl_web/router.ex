@@ -1,8 +1,6 @@
 defmodule SplWeb.Router do
   use SplWeb, :router
 
-  # @enable_graphiql "true"
-
   # ---------------------------------------------------------
   # PIPELINES
   # ---------------------------------------------------------
@@ -15,17 +13,11 @@ defmodule SplWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  # REST API
-  pipeline :api do
+  # API + GraphQL autenticado
+  pipeline :api_auth do
     plug :accepts, ["json"]
     plug :put_user_context
     plug :set_http_status
-  end
-
-  # GraphQL
-  pipeline :graphql do
-    plug :accepts, ["json"]
-    plug SplWeb.Context
   end
 
   # ---------------------------------------------------------
@@ -43,7 +35,7 @@ defmodule SplWeb.Router do
   # ---------------------------------------------------------
 
   scope "/api", SplWeb do
-    pipe_through :api
+    pipe_through :api_auth
 
     post "/auth/register", AuthController, :register
     post "/auth/login", AuthController, :login
@@ -57,15 +49,13 @@ defmodule SplWeb.Router do
   # ---------------------------------------------------------
 
   scope "/api" do
-    pipe_through :graphql
+    pipe_through :api_auth
 
     forward "/graphql",
             Absinthe.Plug,
-            schema: SplWeb.Schema
-
-    forward "/",
-            Absinthe.Plug,
-            schema: SplWeb.Schema
+            schema: SplWeb.Schema,
+            upload: false,
+            json_codec: Jason
   end
 
   # ---------------------------------------------------------
@@ -79,9 +69,10 @@ defmodule SplWeb.Router do
         _ -> nil
       end
 
-    with {:ok, user, _claims} <- Spl.Auth.Guardian.resource_from_token(token) do
-      Absinthe.Plug.put_options(conn, context: %{current_user: user})
-    else
+    case token && Spl.Auth.Guardian.resource_from_token(token) do
+      {:ok, user, _claims} ->
+        Absinthe.Plug.put_options(conn, context: %{current_user: user})
+
       _ ->
         Absinthe.Plug.put_options(conn, context: %{})
     end
