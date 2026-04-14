@@ -76,6 +76,7 @@ config :spl, SplWeb.Endpoint,
 config :spl, :cors_origins,
   System.get_env("ALLOWED_ORIGINS", "")
   |> String.split(",", trim: true)
+  |> Enum.reject(&(&1 == ""))
 
 # =========================
 # PROD CONFIG

@@ -53,7 +53,7 @@ defmodule SplWeb.Endpoint do
   plug Plug.Session, @session_options
 
   plug CORSPlug,
-    origin: Application.compile_env(:spl, :cors_origins, []),
+    origin: Application.get_env(:spl, :cors_origins, []),
     methods: ["GET", "POST", "OPTIONS"],
     headers: ["Authorization", "Content-Type"],
     expose: ["Authorization"]
