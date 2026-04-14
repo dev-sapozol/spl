@@ -17,6 +17,7 @@ defmodule SplWeb.Schema.User do
       field :gender, :string
       field :lenguage, :string
       field :timezone, :string
+      field :avatar_url, :string
       field :inserted_at, :string
       field :updated_at, :string
     end

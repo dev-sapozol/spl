@@ -354,6 +354,12 @@ defmodule Spl.MailBox do
       get_emails_for_all_folders(user_id, all_folders, limit)
 
     %{
+      user: %{
+        id: user.id,
+        name: user.name <> " " <> user.fathername <> " " <> user.mothername,
+        email: user.email,
+        avatar_url: user.avatar_url
+      },
       system_folders: enrich_folders_with_counts(system_folders, counts_by_folder),
       user_folders: enrich_folders_with_counts(user_folders, counts_by_folder),
       emails_by_folder: emails_by_folder

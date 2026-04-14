@@ -147,7 +147,15 @@ defmodule SplWeb.Schema.Emails do
     field :emails, list_of(:list_basic_email)
   end
 
+  object :user_basic do
+    field :id, :id
+    field :name, :string
+    field :email, :string
+    field :avatar_url, :string
+  end
+
   object :preload_mailbox do
+    field :user, type: :user_basic
     field :system_folders, list_of(:folder_info)
     field :user_folders, list_of(:folder_info)
     field :emails_by_folder, list_of(:folder_emails)
