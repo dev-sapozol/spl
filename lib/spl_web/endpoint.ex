@@ -1,6 +1,10 @@
 defmodule SplWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :spl
 
+  def cors_origins(_conn) do
+    Application.get_env(:spl, :cors_origins, [])
+  end
+
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
@@ -53,7 +57,7 @@ defmodule SplWeb.Endpoint do
   plug Plug.Session, @session_options
 
   plug CORSPlug,
-    origin: Application.get_env(:spl, :cors_origins, []),
+    origin: &SplWeb.Endpoint.cors_origins/1,
     methods: ["GET", "POST", "OPTIONS"],
     headers: ["Authorization", "Content-Type"],
     expose: ["Authorization"]
