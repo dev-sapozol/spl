@@ -53,10 +53,11 @@ defmodule SplWeb.Endpoint do
   plug Plug.Session, @session_options
 
   plug CORSPlug,
-    origin: ["http://localhost:5173"],
-    methods: ["GET", "POST", "OPTIONS"],
-    headers: ["Authorization", "Content-Type"],
-    expose: ["Authorization"]
+  origin: System.get_env("ALLOWED_ORIGINS", "")
+          |> String.split(",", trim: true),
+  methods: ["GET", "POST", "OPTIONS"],
+  headers: ["Authorization", "Content-Type", "Apollo-Require-Preflight"],
+  expose: ["Authorization"]
 
   plug SplWeb.Router
 end
