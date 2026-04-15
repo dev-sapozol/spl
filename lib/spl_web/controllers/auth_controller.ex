@@ -6,7 +6,17 @@ defmodule SplWeb.AuthController do
   def register(conn, params) do
     case Account.create_user(params) do
       {:ok, user} ->
-        json(conn, %{message: "User created", user: %{id: user.id, email: user.email}})
+        access_token = Account.generate_access_token(user)
+        refresh_token = Account.generate_refresh_token(user)
+
+        conn
+        |> put_resp_cookie("refresh_token", refresh_token,
+          http_only: true,
+          secure: true,
+          same_site: "Lax",
+          max_age: 60 * 60 * 24 * 30
+        )
+        |> json(%{token: access_token})
 
       {:error, changeset} ->
         conn

@@ -11,7 +11,8 @@ config :spl, SplWeb.Endpoint,
   secret_key_base: "spl_58@&h84#mb28xjBNABbG945*4%0",
   watchers: []
 
-config :spl, :cors_origins, ["http://localhost:5173", "http://localhost:3000"]
+
+config :spl, :cors_origins, ["http://localhost:5173", "http://localhost:4000"]
 
 # =========================
 # DEV ROUTES

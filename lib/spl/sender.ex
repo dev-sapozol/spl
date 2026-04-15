@@ -4,7 +4,7 @@ defmodule Spl.Sender do
   def verify_email(email) do
     case SignatureV4SES.verify_email_identity(email) do
       {:ok, _} -> {:ok, "pending"}
-      error -> error
+      error -> {error, IO.inspect(error)}
     end
   end
 

@@ -10,11 +10,13 @@ defmodule Spl.SignatureV4SES do
   @aws_version "2010-12-01"
 
   def aws_access_key do
-    Application.get_env(:spl, :aws)[:aws_access_key]
+   key = Application.get_env(:spl, :aws)[:aws_access_key]
+   key
   end
 
   def aws_secret_key do
-    Application.get_env(:spl, :aws)[:aws_secret_key]
+    key = Application.get_env(:spl, :aws)[:aws_secret_key]
+    key
   end
 
   def verify_email_identity(email) do
@@ -65,7 +67,9 @@ defmodule Spl.SignatureV4SES do
     _ -> {:error, "Parsing failed"}
   end
 
-  defp handle_response(%{status_code: status}, _) do
+  defp handle_response(%{status_code: status, body: body}, _) do
+    # <--- AGREGA ESTO PARA VER EL XML DE ERROR
+    Logger.error("SES Error Body: #{body}")
     {:error, "SES error #{status}"}
   end
 

@@ -1,10 +1,6 @@
 defmodule SplWeb.Router do
   use SplWeb, :router
 
-  # ---------------------------------------------------------
-  # PIPELINES
-  # ---------------------------------------------------------
-
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -13,29 +9,23 @@ defmodule SplWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  # API + GraphQL autenticado
-  pipeline :api_auth do
+  pipeline :api do
     plug :accepts, ["json"]
-    plug :put_user_context
-    plug :set_http_status
   end
 
-  # ---------------------------------------------------------
-  # RUTAS HTML
-  # ---------------------------------------------------------
+  pipeline :api_auth do
+    plug :fetch_session
+    plug :put_user_context
+  end
 
   scope "/health", SplWeb do
-    pipe_through :api_auth
+    pipe_through [:api]
 
     get "/", HealthController, :index
   end
 
-  # ---------------------------------------------------------
-  # RUTAS REST
-  # ---------------------------------------------------------
-
   scope "/api", SplWeb do
-    pipe_through :api_auth
+    pipe_through [:api, :api_auth]
 
     post "/auth/register", AuthController, :register
     post "/auth/login", AuthController, :login
@@ -44,23 +34,14 @@ defmodule SplWeb.Router do
     post "/auth/refresh", AuthController, :refresh
   end
 
-  # ---------------------------------------------------------
-  # GRAPHQL API
-  # ---------------------------------------------------------
-
   scope "/api" do
-    pipe_through :api_auth
+    pipe_through [:api, :api_auth]
 
     forward "/graphql",
             Absinthe.Plug,
             schema: SplWeb.Schema,
-            upload: false,
             json_codec: Jason
   end
-
-  # ---------------------------------------------------------
-  # HELPERS INTERNOS
-  # ---------------------------------------------------------
 
   defp put_user_context(conn, _) do
     token =
@@ -71,17 +52,10 @@ defmodule SplWeb.Router do
 
     case token && Spl.Auth.Guardian.resource_from_token(token) do
       {:ok, user, _claims} ->
-        Absinthe.Plug.put_options(conn, context: %{current_user: user})
+        Absinthe.Plug.assign_context(conn, :current_user, user)
 
       _ ->
-        Absinthe.Plug.put_options(conn, context: %{})
+        conn
     end
-  end
-
-  defp set_http_status(conn, _) do
-    status_code =
-      get_in(conn.private[:absinthe][:context], [:http_status_code]) || 200
-
-    Plug.Conn.put_status(conn, status_code)
   end
 end

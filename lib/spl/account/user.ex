@@ -50,7 +50,6 @@ defmodule Spl.Account.User do
   @required_reg [
     :email,
     :password,
-    :role,
     :name,
     :fathername,
     :country,
@@ -69,7 +68,13 @@ defmodule Spl.Account.User do
     |> validate_email_domain()
     |> validate_length(:password, min: 8)
     |> validate_email_username_unique()
+    |> put_change(:role, "USER")
+    |> unsafe_drop_role(attrs)
     |> put_password_hash()
+  end
+
+  defp unsafe_drop_role(changeset, _attrs) do
+    delete_change(changeset, :role)
   end
 
   defp validate_email_domain(changeset) do
@@ -95,7 +100,7 @@ defmodule Spl.Account.User do
 
         query =
           from u in __MODULE__,
-            where: ilike(u.email, ^"#{username}@%")
+            where: like(fragment("LOWER(?)", u.email), ^"#{String.downcase(username)}@%")
 
         if Repo.exists?(query) do
           add_error(changeset, :email, "email_already_exists")
