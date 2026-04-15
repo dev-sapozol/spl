@@ -4,9 +4,6 @@ config :spl,
   ecto_repos: [Spl.Repo],
   generators: [timestamp_type: :utc_datetime]
 
-config :spl, SplWeb.Auth.Guardian,
-  issuer: "spl"
-
 # Endpoint base
 config :spl, SplWeb.Endpoint,
   url: [host: "localhost"],

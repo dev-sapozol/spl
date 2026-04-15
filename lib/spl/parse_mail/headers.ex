@@ -41,11 +41,11 @@ defmodule Spl.ParseMail.Headers do
   end
 
   @doc "Extrae una dirección de email de una cabecera"
-  @spec extract_address(map(), String.t()) :: String.t() | nil
+  @spec extract_address(map(), String.t()) :: [String.t()]
   def extract_address(headers, key) do
     headers
     |> get_decoded(key)
-    |> parse_single_address()
+    |> parse_address_list()
   end
 
   @doc "Extrae una lista de direcciones de email"
@@ -57,7 +57,6 @@ defmodule Spl.ParseMail.Headers do
   end
 
   @doc "Parsea una dirección simple 'Nombre <email>' o 'email'"
-  @spec parse_single_address(String.t()) :: String.t() | nil
   def parse_single_address(header_value) when is_binary(header_value) do
     case Regex.run(~r/<([^>]+)>/, header_value) do
       [_, email] ->
@@ -65,6 +64,7 @@ defmodule Spl.ParseMail.Headers do
 
       nil ->
         case Regex.run(@email_regex, header_value) do
+          [_, email] -> String.trim(email)
           [email] -> String.trim(email)
           nil -> nil
         end

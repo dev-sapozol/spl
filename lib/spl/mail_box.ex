@@ -4,7 +4,6 @@ defmodule Spl.MailBox do
 
   alias Spl.{Repo, EmailStorage, EmailCache}
   alias Spl.MailBox.{Emails, UserFolders, SystemFolders}
-  alias Spl.Account.User
 
   def data(), do: Dataloader.Ecto.new(Repo, query: &query/2)
 
@@ -345,18 +344,26 @@ defmodule Spl.MailBox do
   def preload_mailbox(user, limit \\ 50) do
     user_id = user.id
     {system_folders, user_folders} = load_folders(user_id)
-
     all_folders = system_folders ++ user_folders
 
-    counts_by_folder = get_all_folder_counts(user_id)
+    {counts_by_folder, emails_raw} =
+      [
+        fn -> get_all_folder_counts(user_id) end,
+        fn -> get_all_emails_bulk(user_id, all_folders, limit) end
+      ]
+      |> Task.async_stream(& &1.(), max_concurrency: 2)
+      |> Enum.map(fn {:ok, res} -> res end)
+      |> List.to_tuple()
 
-    emails_by_folder =
-      get_emails_for_all_folders(user_id, all_folders, limit)
+    emails_by_folder = build_emails_by_folder(emails_raw, all_folders, user)
 
     %{
       user: %{
         id: user.id,
-        name: user.name <> " " <> user.fathername <> " " <> user.mothername,
+        name:
+          [user.name, user.fathername, user.mothername]
+          |> Enum.reject(&is_nil/1)
+          |> Enum.join(" "),
         email: user.email,
         avatar_url: user.avatar_url
       },
@@ -364,6 +371,42 @@ defmodule Spl.MailBox do
       user_folders: enrich_folders_with_counts(user_folders, counts_by_folder),
       emails_by_folder: emails_by_folder
     }
+  end
+
+  defp get_all_emails_bulk(user_id, folders, limit) do
+    folder_pairs =
+      Enum.map(folders, fn f ->
+        {f.id, normalize_folder_type(f.folder_type)}
+      end)
+
+    folder_ids = Enum.map(folder_pairs, &elem(&1, 0))
+
+    from(e in Emails,
+      where: e.user_id == ^user_id and e.folder_id in ^folder_ids,
+      order_by: [asc: e.folder_id, desc: e.inserted_at]
+    )
+    |> Repo.all()
+    |> Enum.group_by(&{&1.folder_id, &1.folder_type})
+    |> Map.new(fn {key, emails} ->
+      {key, Enum.take(emails, limit)}
+    end)
+  end
+
+  defp build_emails_by_folder(emails_map, folders, user) do
+    Enum.map(folders, fn folder ->
+      folder_type = normalize_folder_type(folder.folder_type)
+      special? = special_folder?(folder, folder_type)
+
+      emails =
+        Map.get(emails_map, {folder.id, folder_type}, [])
+        |> Enum.map(&decorate_email(&1, user, special?))
+
+      %{
+        folder_id: folder.id,
+        folder_type: folder_type,
+        emails: emails
+      }
+    end)
   end
 
   defp load_folders(user_id) do
@@ -403,39 +446,6 @@ defmodule Spl.MailBox do
       counts = Map.get(counts_map, key, %{total: 0, unread: 0})
       Map.merge(folder, counts)
     end)
-  end
-
-  defp get_emails_for_all_folders(user_id, folders, limit) do
-    my_user = Repo.get!(User, user_id)
-
-    Enum.map(folders, fn folder ->
-      folder_type = normalize_folder_type(folder.folder_type)
-      special? = special_folder?(folder, folder_type)
-
-      emails =
-        fetch_emails_for_folder(user_id, folder, folder_type, limit)
-        |> Enum.map(&decorate_email(&1, my_user, special?))
-
-      %{
-        folder_id: folder.id,
-        folder_type: folder_type,
-        emails: emails
-      }
-    end)
-  end
-
-  defp fetch_emails_for_folder(user_id, folder, folder_type, limit) do
-    IO.inspect(limit, label: "EMAIL LIMIT")
-
-    from(e in Emails,
-      where:
-        e.user_id == ^user_id and
-          e.folder_id == ^folder.id and
-          e.folder_type == ^folder_type,
-      order_by: [desc: e.inserted_at],
-      limit: ^limit
-    )
-    |> Repo.all()
   end
 
   defp special_folder?(folder, :SYSTEM),

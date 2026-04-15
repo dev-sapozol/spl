@@ -24,8 +24,7 @@ defmodule Spl.InboxEmail do
   end
 
   def listener_messages_sqs() do
-    Logger.info("processing genserver")
-    Process.send_after(self(), :process_messages, 715_000)
+    Process.send_after(self(), :process_messages, 0)
   end
 
   def handle_info(:process_messages, state) do
@@ -36,11 +35,12 @@ defmodule Spl.InboxEmail do
 
   def process_messages do
     queue_url = AwsBuilder.build_ses_s3_queue()
-    Logger.debug("SQS: #{inspect(queue_url)}")
-    Logger.debug("Processing messages from SQS", metadata: [queue_url: queue_url])
 
     queue_url
-    |> SQS.receive_message(max_number_of_messages: 10)
+    |> SQS.receive_message(
+      max_number_of_messages: 10,
+      wait_time_seconds: 20
+    )
     |> ExAws.request(region: @region)
     |> case do
       {:ok, response} ->
@@ -289,6 +289,14 @@ defmodule Spl.InboxEmail do
           Logger.info("Successfully registered received email",
             metadata: [email_id: new_email.id]
           )
+
+          if new_email.user_id do
+            Phoenix.PubSub.broadcast(
+              Spl.PubSub,
+              "inbox:#{new_email.user_id}",
+              {:new_email, new_email}
+            )
+          end
 
           {:ok, new_email}
 

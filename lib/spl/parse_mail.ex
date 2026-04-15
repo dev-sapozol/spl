@@ -69,15 +69,15 @@ defmodule Spl.ParseMail do
       {:ok, struct(ParseMail.Email, email_data)}
     rescue
       e in RuntimeError ->
-        Logger.error("Error parsing email: #{e.message}")
+        Logger.error("Error parsing email from ParseMail: #{e.message}")
         {:error, :parse_error, e.message}
 
       e ->
-        Logger.error("Unexpected error: #{inspect(e)}")
+        Logger.error("Unexpected from ParseMail: #{inspect(e)}")
         {:error, :unexpected_error, inspect(e)}
     catch
       kind, value ->
-        Logger.error("Caught error: #{kind} - #{inspect(value)}")
+        Logger.error("Caught from ParseMail: #{kind} - #{inspect(value)}")
         {:error, :caught_error, "#{kind}: #{inspect(value)}"}
     end
   end
@@ -95,7 +95,7 @@ defmodule Spl.ParseMail do
         {"", ""}
 
       other ->
-        Logger.warning("Unexpected split result: #{inspect(other)}")
+        Logger.warning("Unexpected split result from ParseMail: #{inspect(other)}")
         {raw_content, ""}
     end
   end
