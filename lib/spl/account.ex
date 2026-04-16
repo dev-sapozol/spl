@@ -5,6 +5,8 @@ defmodule Spl.Account do
   alias Spl.{Repo}
   alias Spl.Account.User
 
+  require Logger
+
   def data(), do: Dataloader.Ecto.new(Repo, query: &query/2)
 
   def query(queryable, _params) do
@@ -18,13 +20,16 @@ defmodule Spl.Account do
   def authenticate_user(email, password) do
     case Repo.get_by(User, email: email) do
       nil ->
+        Logger.error("AUTH FAIL: user not found #{email}")
         {:error, :invalid_credentials}
 
       user ->
-        if Bcrypt.verify_pass(password, user.password_hash) do
-          IO.inspect(email)
-          IO.inspect(user)
-          IO.inspect(Bcrypt.verify_pass(password, user.password_hash))
+        Logger.info("AUTH: password_length=#{String.length(password)}")
+        Logger.info("AUTH: password_bytes=#{inspect(:binary.bin_to_list(password))}")
+        result = Bcrypt.verify_pass(password, user.password_hash)
+        Logger.info("AUTH: verify=#{result}")
+
+        if result do
           {:ok, user}
         else
           {:error, :invalid_credentials}
