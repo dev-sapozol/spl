@@ -2,6 +2,7 @@ defmodule SplWeb.AuthController do
   use SplWeb, :controller
   alias Spl.{Account}
   alias Spl.Auth.{Guardian, PasswordReset}
+  require Logger
 
   def register(conn, params) do
     case Account.create_user(params) do
@@ -31,9 +32,9 @@ defmodule SplWeb.AuthController do
         access_token = Account.generate_access_token(user)
         refresh_token = Account.generate_refresh_token(user)
 
-        IO.inspect(user, label: "USER")
-        IO.inspect(password, label: "RAW PASSWORD")
-        IO.inspect(Bcrypt.verify_pass(password, user.password_hash), label: "PASSWORD MATCH")
+        Logger.info("Logging in user #{user}")
+        Logger.info("Login successfull for password #{password}")
+        Logger.info("PASSWORD MATCH #{Bcrypt.verify_pass(password, user.password_hash)}")
 
         conn
         |> put_resp_cookie("refresh_token", refresh_token,
