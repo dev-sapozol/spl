@@ -20,14 +20,10 @@ defmodule Spl.Account do
   def authenticate_user(email, password) do
     case Repo.get_by(User, email: email) do
       nil ->
-        Logger.error("AUTH FAIL: user not found #{email}")
         {:error, :invalid_credentials}
 
       user ->
-        Logger.info("AUTH: password_length=#{String.length(password)}")
-        Logger.info("AUTH: password_bytes=#{inspect(:binary.bin_to_list(password))}")
         result = Bcrypt.verify_pass(password, user.password_hash)
-        Logger.info("AUTH: verify=#{result}")
 
         if result do
           {:ok, user}
