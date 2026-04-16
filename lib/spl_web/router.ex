@@ -32,6 +32,9 @@ defmodule SplWeb.Router do
     put "/auth/change-password", AuthController, :change_password
     post "/auth/verify-email", AuthController, :verify_email
     post "/auth/refresh", AuthController, :refresh
+    post "/auth/request-password-reset", AuthController, :request_password_reset
+    post "/auth/verify-reset-otp", AuthController, :verify_reset_otp
+    post "/auth/reset-password", AuthController, :reset_password
   end
 
   scope "/api" do

@@ -1,7 +1,7 @@
 defmodule SplWeb.AuthController do
   use SplWeb, :controller
   alias Spl.{Account}
-  alias Spl.Auth.Guardian
+  alias Spl.Auth.{Guardian, PasswordReset}
 
   def register(conn, params) do
     case Account.create_user(params) do
@@ -30,6 +30,10 @@ defmodule SplWeb.AuthController do
       {:ok, user} ->
         access_token = Account.generate_access_token(user)
         refresh_token = Account.generate_refresh_token(user)
+
+        IO.inspect(user, label: "USER")
+        IO.inspect(password, label: "RAW PASSWORD")
+        IO.inspect(Bcrypt.verify_pass(password, user.password_hash), label: "PASSWORD MATCH")
 
         conn
         |> put_resp_cookie("refresh_token", refresh_token,
@@ -99,6 +103,41 @@ defmodule SplWeb.AuthController do
         conn
         |> put_status(:unauthorized)
         |> json(%{error: "Invalid password"})
+    end
+  end
+
+  def request_password_reset(conn, %{"email" => email}) do
+    PasswordReset.request_reset(email)
+    json(conn, %{success: true})
+  end
+
+  def verify_reset_otp(conn, %{"email" => email, "otp" => otp}) do
+    case PasswordReset.verify_otp(email, otp) do
+      {:ok, :verified} ->
+        PasswordReset.mark_verified(email)
+        json(conn, %{success: true})
+
+      {:error, :expired} ->
+        conn |> put_status(400) |> json(%{error: "Code expired, request a new one"})
+
+      {:error, :invalid_otp} ->
+        conn |> put_status(400) |> json(%{error: "Invalid code"})
+
+      {:error, :too_many_attempts} ->
+        conn |> put_status(429) |> json(%{error: "Too many attempts, request a new code"})
+    end
+  end
+
+  def reset_password(conn, %{"email" => email, "password" => password}) do
+    case PasswordReset.reset_password(email, password) do
+      {:ok, _} ->
+        json(conn, %{success: true})
+
+      {:error, :not_verified} ->
+        conn |> put_status(403) |> json(%{error: "OTP not verified"})
+
+      {:error, _} ->
+        conn |> put_status(400) |> json(%{error: "Could not reset password"})
     end
   end
 end

@@ -4,6 +4,7 @@ defmodule SplWeb.UserSocket do
 
   channel "inbox*", SplWeb.InboxChannel
 
+  @impl true
   def connect(%{"token" => token}, socket, _connect_info) do
     case Guardian.decode_and_verify(token) do
       {:ok, claims} ->
@@ -15,5 +16,6 @@ defmodule SplWeb.UserSocket do
     end
   end
 
+  @impl true
   def id(socket), do: "users_socket:#{socket.assigns.current_user.id}"
 end
