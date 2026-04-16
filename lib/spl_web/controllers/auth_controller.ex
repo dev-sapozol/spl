@@ -32,10 +32,6 @@ defmodule SplWeb.AuthController do
         access_token = Account.generate_access_token(user)
         refresh_token = Account.generate_refresh_token(user)
 
-        Logger.info("Logging in user #{user}")
-        Logger.info("Login successfull for password #{password}")
-        Logger.info("PASSWORD MATCH #{Bcrypt.verify_pass(password, user.password_hash)}")
-
         conn
         |> put_resp_cookie("refresh_token", refresh_token,
           http_only: true,
