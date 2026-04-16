@@ -10,8 +10,8 @@ defmodule Spl.SignatureV4SES do
   @aws_version "2010-12-01"
 
   def aws_access_key do
-   key = Application.get_env(:spl, :aws)[:aws_access_key]
-   key
+    key = Application.get_env(:spl, :aws)[:aws_access_key]
+    key
   end
 
   def aws_secret_key do
@@ -113,6 +113,26 @@ defmodule Spl.SignatureV4SES do
     xpath(
       body,
       ~x"//entry[key/text()='#{email}']/value/VerificationStatus/text()"s
+    )
+  end
+
+  def send_email(%{to: to, subject: subject, html_body: html_body, text_body: text_body}) do
+    request(
+      "SendEmail",
+      %{
+        "Source" => "no-reply@esanpol.xyz",
+        "Destination.ToAddresses.member.1" => to,
+        "Message.Subject.Data" => subject,
+        "Message.Subject.Charset" => "UTF-8",
+        "Message.Body.Html.Data" => html_body,
+        "Message.Body.Html.Charset" => "UTF-8",
+        "Message.Body.Text.Data" => text_body,
+        "Message.Body.Text.Charset" => "UTF-8"
+      },
+      fn response ->
+        IO.inspect(response, label: "SES RESPONSE")
+        {:ok, response}
+      end
     )
   end
 end

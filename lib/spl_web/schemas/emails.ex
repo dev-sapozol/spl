@@ -150,6 +150,7 @@ defmodule SplWeb.Schema.Emails do
   object :user_basic do
     field :id, :id
     field :name, :string
+    field :role, :string
     field :email, :string
     field :avatar_url, :string
   end

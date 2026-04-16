@@ -360,6 +360,7 @@ defmodule Spl.MailBox do
     %{
       user: %{
         id: user.id,
+        role: user.role,
         name:
           [user.name, user.fathername, user.mothername]
           |> Enum.reject(&is_nil/1)

@@ -63,6 +63,12 @@ defmodule Spl.Account do
     end
   end
 
+  def reset_user_password(user, new_pw) do
+    user
+    |> User.registration_changeset(%{password: new_pw})
+    |> Repo.update()
+  end
+
   def get_basic_user(id) do
     from(u in User,
       where: u.id == ^id,
@@ -86,6 +92,10 @@ defmodule Spl.Account do
 
   def get_user_id_by_email(email) do
     from(u in User, where: u.email == ^email, select: u.id) |> Repo.one()
+  end
+
+  def get_user_by_email(email) do
+    from(u in User, where: u.email == ^email) |> Repo.one()
   end
 
   def list_users(args) do

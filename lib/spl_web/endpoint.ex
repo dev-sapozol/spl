@@ -62,5 +62,12 @@ defmodule SplWeb.Endpoint do
     headers: ["Authorization", "Content-Type"],
     expose: ["Authorization"]
 
+  socket "/socket", SplWeb.UserSocket,
+    websocket: [
+      timeout: :infinity,
+      compress: true
+    ],
+    longpoll: false
+
   plug SplWeb.Router
 end
