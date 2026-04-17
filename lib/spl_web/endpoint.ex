@@ -65,7 +65,11 @@ defmodule SplWeb.Endpoint do
   socket "/socket", SplWeb.UserSocket,
     websocket: [
       timeout: :infinity,
-      compress: true
+      compress: true,
+      check_origin: [
+        "https://www.esanpol.xyz",
+        "https://esanpol.xyz"
+      ]
     ],
     longpoll: false
 
