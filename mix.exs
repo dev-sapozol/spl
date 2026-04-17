@@ -42,7 +42,6 @@ defmodule Spl.MixProject do
       {:phoenix, "~> 1.8.1"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
-      {:postgrex, ">= 0.0.0"},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:swoosh, "~> 1.16"},
       {:req, "~> 0.5"},
@@ -59,7 +58,6 @@ defmodule Spl.MixProject do
       {:absinthe_phoenix, "~> 2.0.3"},
       {:guardian, "~> 2.4"},
       {:jose, "~> 1.11"},
-      {:myxql, "~> 0.7.0"},
       {:dotenvy, "~> 1.0.0"},
       {:dataloader, "~> 2.0.0"},
       {:ex_aws_sqs, "~> 3.3.0"},
@@ -76,7 +74,8 @@ defmodule Spl.MixProject do
       {:cors_plug, "~> 3.0"},
       {:httpoison, "~> 2.1"},
       {:aws_signature, "0.4.2"},
-      {:redix, "~> 1.5"}
+      {:redix, "~> 1.5"},
+      {:postgrex, "~> 0.22.0"}
     ]
   end
 

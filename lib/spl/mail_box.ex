@@ -430,7 +430,7 @@ defmodule Spl.MailBox do
         total: count(e.id),
         unread:
           fragment(
-            "CAST(SUM(CASE WHEN ? = FALSE THEN 1 ELSE 0 END) AS SIGNED)",
+            "CAST(SUM(CASE WHEN ? = FALSE THEN 1 ELSE 0 END) AS BIGINT)",
             e.is_read
           )
       }
