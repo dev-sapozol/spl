@@ -60,14 +60,14 @@ config :spl, :aws,
 # =========================
 
 config :spl, Spl.Repo,
-  adapter: Ecto.Adapters.MyXQL,
+  adapter: Ecto.Adapters.Postgres,
   username: System.get_env("DB_USERNAME") || raise("DB_USERNAME missing"),
   password: System.get_env("DB_PASSWORD") || raise("DB_PASSWORD missing"),
   database: System.get_env("DB_NAME") || raise("DB_NAME missing"),
   hostname: System.get_env("DB_HOSTNAME") || raise("DB_HOSTNAME missing"),
-  port: String.to_integer(System.get_env("DB_PORT") || "3306"),
+  port: String.to_integer(System.get_env("DB_PORT") || "5432"),
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-  connect_opts: [tcp: true, allowPublicKeyRetrieval: true, ssl: false]
+  ssl: System.get_env("DB_SSL", "false") |> String.downcase() == "true"
 
 # =========================
 # PHOENIX SERVER (RENDER)
