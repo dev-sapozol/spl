@@ -20,6 +20,7 @@ defmodule Spl.Account.User do
     field :gender, :string
     field :avatar_url, :string
     field :recovery_email, :string
+    field :ai_messages_used, :integer
 
     timestamps()
   end
@@ -43,7 +44,7 @@ defmodule Spl.Account.User do
 
   def changeset(user, attrs) do
     user
-    |> cast(attrs, [@update_fields, :recovery_email])
+    |> cast(attrs, [@update_fields, :recovery_email, :ai_messages_used])
     |> validate_format(:recovery_email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/,
       message: "invalid email format"
     )

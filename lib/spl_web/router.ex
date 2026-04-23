@@ -27,6 +27,7 @@ defmodule SplWeb.Router do
   scope "/api", SplWeb do
     pipe_through [:api, :api_auth]
 
+    post "/ai/draft", AIDraftController, :generate
     post "/auth/register", AuthController, :register
     post "/auth/login", AuthController, :login
     put "/auth/change-password", AuthController, :change_password
@@ -46,19 +47,21 @@ defmodule SplWeb.Router do
             json_codec: Jason
   end
 
-  defp put_user_context(conn, _) do
-    token =
-      case get_req_header(conn, "authorization") do
-        ["Bearer " <> token] -> token
-        _ -> nil
-      end
-
-    case token && Spl.Auth.Guardian.resource_from_token(token) do
-      {:ok, user, _claims} ->
-        Absinthe.Plug.assign_context(conn, :current_user, user)
-
-      _ ->
-        conn
+defp put_user_context(conn, _) do
+  token =
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> token] -> token
+      _ -> nil
     end
+
+  case token && Spl.Auth.Guardian.resource_from_token(token) do
+    {:ok, user, _claims} ->
+      conn
+      |> assign(:current_user, user)
+      |> Absinthe.Plug.assign_context(:current_user, user)
+
+    _ ->
+      conn
   end
+end
 end

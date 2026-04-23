@@ -153,6 +153,8 @@ defmodule SplWeb.Schema.Emails do
     field :role, :string
     field :email, :string
     field :avatar_url, :string
+    field :ai_messages_used, :integer
+    field :ai_messages_remaining, :integer
   end
 
   object :preload_mailbox do

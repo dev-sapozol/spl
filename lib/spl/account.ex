@@ -4,6 +4,7 @@ defmodule Spl.Account do
   alias Spl.Auth.Guardian
   alias Spl.{Repo}
   alias Spl.Account.User
+  alias Spl.MailBox.ExternalEmails
 
   require Logger
 
@@ -83,7 +84,8 @@ defmodule Spl.Account do
         country: u.country,
         cellphone: u.cellphone,
         timezone: u.timezone,
-        lenguage: u.lenguage
+        lenguage: u.lenguage,
+        ai_messages_used: u.ai_messages_used
       }
     )
     |> Repo.one()
@@ -161,5 +163,39 @@ defmodule Spl.Account do
 
   defp is_nil_or_blank(value) do
     value in [nil, ""] or (is_binary(value) and String.trim(value) == "")
+  end
+
+  def search_user(current_user_id, query) do
+    clean = "%#{String.trim(query)}%"
+
+    internal_users =
+      from(u in User,
+        where: u.id != ^current_user_id,
+        where: ilike(u.email, ^clean) or ilike(u.name, ^clean),
+        select: %{
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          fathername: u.fathername,
+          mothername: u.mothername,
+          avatar_url: u.avatar_url
+        },
+        limit: 5
+      )
+      |> Repo.all()
+
+  external_emails =
+    from(e in ExternalEmails,
+      where: e.user_id == ^current_user_id,
+      where: e.status == "verified",
+      where: ilike(e.email, ^clean),
+      select: %{
+        email: e.email,
+      }
+    )
+    |> Repo.all()
+
+    (internal_users ++ external_emails)
+    |> Enum.uniq_by(& &1.email)
   end
 end

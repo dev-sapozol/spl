@@ -22,4 +22,9 @@ defmodule Spl.UserResolver do
       {:error, changeset} -> {:error, changeset}
     end
   end
+
+  def search(%{query: query}, %{context: %{current_user: current_user}}) do
+    results = Account.search_user(current_user.id, query)
+    {:ok, results}
+  end
 end

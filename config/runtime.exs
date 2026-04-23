@@ -70,14 +70,6 @@ config :spl, Spl.Repo,
   ssl: System.get_env("DB_SSL", "false") |> String.downcase() == "true"
 
 # =========================
-# PHOENIX SERVER (RENDER)
-# =========================
-
-config :spl, SplWeb.Endpoint,
-  server: true,
-  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")]
-
-# =========================
 # PROD CONFIG
 # =========================
 
@@ -92,6 +84,7 @@ if config_env() == :prod do
   config :spl, SplWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [ip: {0, 0, 0, 0}, port: port],
+    server: true,
     secret_key_base: secret_key_base
 
   config :spl, :cors_origins,

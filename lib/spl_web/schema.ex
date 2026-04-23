@@ -14,16 +14,16 @@ defmodule SplWeb.Schema do
   import_types(__MODULE__.Emails)
   import_types(__MODULE__.SystemFolders)
   import_types(__MODULE__.UserFolders)
-  import_types(__MODULE__.EmailVerification)
   import_types(__MODULE__.Files)
+  import_types(__MODULE__.ExternalEmails)
 
   query do
     import_fields(:user_queries)
     import_fields(:email_queries)
     import_fields(:system_folders_queries)
     import_fields(:user_folders_queries)
-    import_fields(:email_verification_queries)
     import_fields(:files_queries)
+    import_fields(:external_emails_queries)
   end
 
   mutation do
@@ -31,8 +31,8 @@ defmodule SplWeb.Schema do
     import_fields(:email_mutations)
     import_fields(:system_folders_mutations)
     import_fields(:user_folders_mutations)
-    import_fields(:email_verification_mutations)
     import_fields(:files_mutations)
+    import_fields(:external_emails_mutations)
   end
 
   def dataloader() do

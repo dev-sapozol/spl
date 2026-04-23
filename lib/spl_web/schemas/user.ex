@@ -6,6 +6,7 @@ defmodule SplWeb.Schema.User do
     object :user do
       field :id, :id
       field :role, :string
+      field :name, :string
       field :password_hash, :string
       field :email, :string
       field :fathername, :string
@@ -18,6 +19,8 @@ defmodule SplWeb.Schema.User do
       field :lenguage, :string
       field :timezone, :string
       field :avatar_url, :string
+      field :ai_messages_used, :integer
+      field :query, :string
       field :inserted_at, :string
       field :updated_at, :string
     end
@@ -46,6 +49,16 @@ defmodule SplWeb.Schema.User do
       field :timezone, :string
       field :role, :string
       field :lenguage, :string
+
+    end
+
+    object :search_user do
+      field :name, :string
+      field :email, :string
+      field :avatar_url, :string
+      field :fathername, :string
+      field :mothername, :string
+
     end
 
     # === QUERIES ===
@@ -54,6 +67,12 @@ defmodule SplWeb.Schema.User do
       field :get_basic_data_user, :user do
         middleware Middleware.Authenticate, :all
         resolve &Spl.UserResolver.get_basic_data_user/3
+      end
+
+      field :search_user, list_of(:search_user) do
+        arg :query, non_null(:string)
+        middleware Middleware.Authenticate, :all
+        resolve &Spl.UserResolver.search/2
       end
     end
 
