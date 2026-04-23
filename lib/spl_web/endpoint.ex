@@ -65,7 +65,8 @@ defmodule SplWeb.Endpoint do
   socket "/socket", SplWeb.UserSocket,
     websocket: [
       timeout: :infinity,
-      compress: true
+      compress: true,
+      check_origin: Application.compile_env(:spl, SplWeb.Endpoint)[:check_origin]
     ],
     longpoll: false
 

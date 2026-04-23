@@ -11,3 +11,9 @@ config :logger, level: :debug
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
+
+config :spl, SplWeb.Endpoint,
+  check_origin: [
+    "https://www.esanpol.xyz",
+    "https://esanpol.xyz"
+  ]

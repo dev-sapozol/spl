@@ -3,7 +3,9 @@ defmodule Spl.MailBox do
   require Logger
 
   alias Spl.{Repo, EmailStorage, EmailCache}
-  alias Spl.MailBox.{Emails, UserFolders, SystemFolders}
+  alias Spl.MailBox.{Emails, UserFolders, SystemFolders, ExternalEmails}
+
+  @max_per_user 2
 
   def data(), do: Dataloader.Ecto.new(Repo, query: &query/2)
 
@@ -15,7 +17,6 @@ defmodule Spl.MailBox do
     Map.put(folder, :folder_type, type)
   end
 
-  # Normalizar folder_type (string → atom)
   def normalize_folder_type(type) when is_binary(type) do
     type
     |> String.to_atom()
@@ -366,6 +367,8 @@ defmodule Spl.MailBox do
           |> Enum.reject(&is_nil/1)
           |> Enum.join(" "),
         email: user.email,
+        ai_messages_used: user.ai_messages_used,
+        ai_messages_remaining: 8 - user.ai_messages_used,
         avatar_url: user.avatar_url
       },
       system_folders: enrich_folders_with_counts(system_folders, counts_by_folder),
@@ -578,5 +581,41 @@ defmodule Spl.MailBox do
 
   def invalidate_inbox_cache(user_id, folder_id) do
     EmailCache.invalidate_inbox(user_id, folder_id)
+  end
+
+  def create_external_email(user_id, email) do
+    count =
+      from(e in ExternalEmails, where: e.user_id == ^user_id)
+      |> Repo.aggregate(:count)
+
+    cond do
+      count >= @max_per_user ->
+        {:error, :limit_reached}
+
+      true ->
+        %ExternalEmails{}
+        |> ExternalEmails.changeset(%{
+          email: email,
+          user_id: user_id
+        })
+        |> Repo.insert()
+    end
+  end
+
+  def list_external_emails(user_id) do
+    from(e in ExternalEmails, where: e.user_id == ^user_id)
+    |> Repo.all()
+  end
+
+  def get_external_email(user_id, email) do
+    from(e in ExternalEmails,
+      where: e.user_id == ^user_id and e.email == ^email
+    )
+    |> Repo.one()
+  end
+
+  def confirm_external_email(email) do
+    from(e in ExternalEmails, where: e.email == ^email)
+    |> Repo.update_all(set: [status: "verified"])
   end
 end
